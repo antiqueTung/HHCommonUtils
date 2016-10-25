@@ -8,3 +8,6 @@
   * 2、type the request into the podfile,eg pod 'HHCommonUtils', '~> 1.0.4'
   * 3、change directory to your project,and type pod install
   
+## else
+  * I want to give you developers a site which introduce how to deliver your project to CocoaPods,it has enough information but may not look easily because the author did not put in order. the site http://blog.sina.com.cn/s/blog_9dec040b0102wr6f.html
+  
