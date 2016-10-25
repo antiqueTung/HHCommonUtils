@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = "HHCommonUtils"
-  s.version      = "1.0.2"
+  s.version      = "1.0.3"
   s.summary      = "developing utils."
   s.homepage     = "https://github.com/antiqueTung/HHCommonUtils"
   s.license      = "MIT"

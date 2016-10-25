@@ -1,18 +1,32 @@
 //
-//  HHCommonUtils.m
-//  huangheNews
+//  HHCommonUtils.h
+//  antiqueDemo
 //
-//  Created by thx03 on 16/3/30.
-//  Copyright © 2016年 fuqiang-apple. All rights reserved.
+//  Created by antique on 16/3/30.
+//  Copyright © 2016年 antique-apple. All rights reserved.
 //
 
 #import "HHCommonUtils.h"
 #define lower_type 1
+//设备的宽高
+#ifndef SCREENHEIGHT
+#define SCREENHEIGHT      [UIScreen mainScreen].bounds.size.height
+#endif
+#ifndef SCREENWIDTH
+#define SCREENWIDTH       [UIScreen mainScreen].bounds.size.width
+#endif
+//获取颜色
+#ifndef RGBA
+#define RGBA(r, g, b, a)                    [UIColor colorWithRed:r/255.0f green:g/255.0f blue:b/255.0f alpha:a]
+#endif
+#ifndef RGB
+#define RGB(r, g, b)                        RGBA(r, g, b, 1.0f)
+#endif
 @interface HHCommonUtils ()
 @end
 
 @implementation HHCommonUtils
-
+@synthesize currentViewController;
 + (NSMutableString *)deleteCharacters:(NSMutableString *)content withReg:(NSString *)tagReg {
     if(content) {
         NSError *error = nil;
@@ -47,10 +61,13 @@
     return contentstring;
 }
 
-// 键盘弹出时
-+(void)keyboardWillShow:(NSNotification *)notification inView:(UIView *)remoteView
+// 键盘弹出时:
++(void)keyboardWillShow:(NSNotification *)notification inView:(UIView *)remoteView gapToBottom:(CGFloat)gapToBottom
 {
     UIView *currentView = [self findFirstResponder:remoteView];
+    if(currentView == nil) {//present的controller中的视图调用
+        return;
+    }
     //获取键盘高度
     NSValue *keyboardObject = [[notification userInfo] objectForKey:UIKeyboardFrameEndUserInfoKey];
     CGRect keyboardRect;
@@ -66,23 +83,68 @@
     CGFloat cvH = currentView.bounds.size.height;
     CGFloat cvY = currentView.frame.origin.y;
     //20160624 dongkaiming start 算法改进：去掉deep，循环判断
-//    if(deep > 0) {
-//        cvY = [currentView convertPoint:currentView.frame.origin toView:remoteView].y;
-//    }
+    //    if(deep > 0) {
+    //        cvY = [currentView convertPoint:currentView.frame.origin toView:remoteView].y;
+    //    }
     UIView *tempView = currentView;
     while(true) {
-        if(tempView.superview == remoteView) {
-            break;
+        //20160808 dongkaiming start
+        /*UITextView等输入框也属于ScrollView,但不用把此层scrollView的y偏移减去*/
+        if(tempView == currentView) {
+            cvY+=tempView.superview.frame.origin.y;
+            tempView = tempView.superview;
+            continue;
         }
+        /*如果当前临时view或view的外层恰好是要移动的容器view,不要执行(cvY+=外层view的y值)的方法，因为加上这个y之后,如果y>0,相当于用的是remoteView的外层view，而remoteView高度和外层view不匹配，计算会偏高;此层view依旧需要减去此层ScrollView的y偏移*/
+        if(tempView.superview == remoteView||tempView == remoteView) {
+            Class tempClass = tempView.class;
+            if([tempClass isSubclassOfClass:[UIScrollView class]]) {
+                UIScrollView *scrollView = (UIScrollView *)tempView;
+                cvY -= scrollView.contentOffset.y;
+                /*如果当前临时view为remoteView(其他层的scrollView不管，因为考虑到正常人不会把输入栏放到一个要滚动的内嵌scrollView中,况且这种情况太复杂，没必要加大我这小小工具的复杂度),计算底部遮挡，cvY需要加上这个遮挡的高度*/
+                //scrollView需要上升的距离，相当于y变小，同时输入框也因为上升,y也变小
+                CGFloat offsetYNeedHeighter = cvY + cvH - tempView.frame.size.height;
+                if(offsetYNeedHeighter>0) {
+                    scrollView.contentOffset = CGPointMake(scrollView.contentOffset.x, scrollView.contentOffset.y+offsetYNeedHeighter);
+                    cvY -= offsetYNeedHeighter;
+                }
+            }
+            if(tempView == remoteView)  {
+                break;//如果当前为临时view为remoteView，计算调整大小的cvY算法结束
+            }
+            tempView = tempView.superview;
+            continue;
+        }
+        
+        Class tempClass = tempView.class;
+        if([tempClass isSubclassOfClass:[UIScrollView class]]) {
+            UIScrollView *scrollView = (UIScrollView *)tempView;
+            cvY -= scrollView.contentOffset.y;
+            /*如果当前临时view为remoteView(其他层的scrollView不管，因为考虑到正常人不会把输入栏放到一个要滚动的内嵌scrollView中,况且这种情况太复杂，没必要加大我这小小工具的复杂度),计算底部遮挡，cvY需要加上这个遮挡的高度*/
+            //scrollView需要上升的距离，相当于y变小，同时输入框也因为上升,y也变小
+            CGFloat offsetYNeedHeighter = cvY + cvH - tempView.frame.size.height;
+            if(offsetYNeedHeighter>0) {
+                scrollView.contentOffset = CGPointMake(scrollView.contentOffset.x, scrollView.contentOffset.y+offsetYNeedHeighter);
+                cvY -= offsetYNeedHeighter;
+            }
+        }
+        //20160808 dongkaiming end
         cvY+=tempView.superview.frame.origin.y;
+        //UITableViewWapperView研究不深，这里把它过滤掉
+        float Version=[[[UIDevice currentDevice] systemVersion] floatValue];
+        if([tempClass isSubclassOfClass:[UITableViewCell class]]&&Version>=7.0)
+        {
+            tempView = tempView.superview;
+        }
         tempView = tempView.superview;
     }
     //20160624 dongkaiming end
-    NSInteger heighterValue = keyboardRect.size.height-(vH-cvH-cvY);
+    CGFloat heighterValue = keyboardRect.size.height-(vH-cvH-cvY)-gapToBottom;
     if(heighterValue < 0) {
         heighterValue = 0;
     }
-    [remoteView setFrame:CGRectMake(0, -heighterValue,remoteView.bounds.size.width,remoteView.bounds.size.height)];
+    [remoteView setFrame:CGRectMake(0, remoteView.frame.origin.y
+                                    -heighterValue,remoteView.bounds.size.width,remoteView.bounds.size.height)];
     [UIView commitAnimations];
 }
 
@@ -151,7 +213,7 @@
         style = [tag substringWithRange:heightResult1.range];
     }
     
-//    NSString *style = [self getAttr:@"style" fromTag:tag findRange:range];
+    //    NSString *style = [self getAttr:@"style" fromTag:tag findRange:range];
     if (style) {
         NSString *content = [self getContentFromAttr:style];
         if(content!=nil) {
@@ -376,4 +438,539 @@
     });
     
 }
+
++ (void)showNavigationBackImage:(NSString*)imageName andController:(UIViewController*)controller{
+    //导航栏 --返回按钮
+    UIImage* img=[UIImage imageNamed:imageName];
+    UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
+    btn.frame =CGRectMake(0, 0, 28, 28);
+    [btn setBackgroundImage:img forState:UIControlStateNormal];
+    btn.userInteractionEnabled = YES;
+    [btn addTarget:controller action: @selector(leftMenuSelectedd:) forControlEvents: UIControlEventTouchUpInside];
+    UIBarButtonItem* item=[[UIBarButtonItem alloc]initWithCustomView:btn];
+    controller.navigationItem.leftBarButtonItem=item;
+    
+}
+
++ (void)showNavigationBackImage:(NSString*)imageName andTitle:(NSString*)title andController:(UIViewController*)controller{
+    //导航栏 --返回按钮
+    UIImage* img=[UIImage imageNamed:imageName];
+    UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
+    btn.frame =CGRectMake(0, 0, 28, 28);
+    [btn setBackgroundImage:img forState:UIControlStateNormal];
+    btn.userInteractionEnabled = YES;
+    [btn addTarget:controller action: @selector(leftMenuSelectedd:) forControlEvents: UIControlEventTouchUpInside];
+    UIBarButtonItem* item=[[UIBarButtonItem alloc]initWithCustomView:btn];
+    
+    UIBarButtonItem *titleItem = [[UIBarButtonItem alloc] initWithTitle:title style:UIBarButtonItemStyleDone target:controller action:@selector(leftMenuSelectedd:)];
+    [titleItem setTitleTextAttributes:[NSDictionary dictionaryWithObjectsAndKeys:[UIFont boldSystemFontOfSize:16],NSFontAttributeName, nil] forState:UIControlStateNormal];
+    [titleItem setTintColor: RGB(15, 110, 100)];
+    
+    
+    controller.navigationItem.leftBarButtonItems = @[item, titleItem];
+    
+}
+
+
+
+- (void)leftMenuSelectedd:(UITapGestureRecognizer*)sender
+{
+    //nothing, just avoid warnings
+}
+
++ (UIImage *)scaleToSize:(CGSize)targetSize ofImage:(UIImage*)image
+{
+    UIImage *sourceImage = image;
+    UIImage *newImage = nil;
+    CGSize imageSize = sourceImage.size;
+    CGFloat width = imageSize.width;
+    CGFloat height = imageSize.height;
+    CGFloat targetWidth = targetSize.width;
+    CGFloat targetHeight = targetSize.height;
+    CGFloat scaleFactor = 0.0;
+    CGFloat scaledWidth = targetWidth;
+    CGFloat scaledHeight = targetHeight;
+    CGPoint thumbnailPoint = CGPointMake(0.0,0.0);
+    if (CGSizeEqualToSize(imageSize, targetSize) ==NO) {
+        CGFloat widthFactor = targetWidth / width;
+        CGFloat heightFactor = targetHeight / height;
+        if (widthFactor < heightFactor)
+            scaleFactor = widthFactor;
+        else
+            scaleFactor = heightFactor;
+        scaledWidth  = width * scaleFactor;
+        scaledHeight = height * scaleFactor;
+        // center the image
+        if (widthFactor < heightFactor) {
+            
+            thumbnailPoint.y = (targetHeight - scaledHeight) * 0.5;
+        } else if (widthFactor > heightFactor) {
+            thumbnailPoint.x = (targetWidth - scaledWidth) * 0.5;
+        }
+    }
+    // this is actually the interesting part:
+    UIGraphicsBeginImageContext(targetSize);
+    CGRect thumbnailRect = CGRectZero;
+    thumbnailRect.origin = thumbnailPoint;
+    thumbnailRect.size.width  = scaledWidth;
+    thumbnailRect.size.height = scaledHeight;
+    [sourceImage drawInRect:thumbnailRect];
+    newImage =UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    if(newImage == nil)
+        NSLog(@"could not scale image");
+    return newImage ;
+}
+
++ (UIImage*) createImageWithColor: (UIColor*) color
+{
+    CGRect rect=CGRectMake(0,0, 1, 1);
+    UIGraphicsBeginImageContext(rect.size);
+    CGContextRef context = UIGraphicsGetCurrentContext();
+    CGContextSetFillColorWithColor(context, [color CGColor]);
+    CGContextFillRect(context, rect);
+    UIImage *theImage = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return theImage;
+}
+
++(NSInteger)getHeightOfLabel:(UILabel*)label {
+    NSString *fullDescAndTagStr = label.text;
+    CGFloat labelWidth = label.layer.bounds.size.width;
+    NSMutableAttributedString *attrStr = [[NSMutableAttributedString alloc] initWithString:fullDescAndTagStr];
+    NSRange allRange = [fullDescAndTagStr rangeOfString:fullDescAndTagStr];
+    [attrStr addAttribute:NSFontAttributeName
+                    value:label.font
+                    range:allRange];
+    CGFloat titleHeight;
+    
+    NSStringDrawingOptions options =  NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingUsesFontLeading;
+    CGRect rect = [attrStr boundingRectWithSize:CGSizeMake(labelWidth, CGFLOAT_MAX)
+                                        options:options
+                                        context:nil];
+    titleHeight = ceilf(rect.size.height);
+    
+    return titleHeight+2;  // 加两个像素,防止emoji被切掉
+}
+
++(void)setExtraCellLineHidden:(UITableView*)tableView {
+    UIView *view = [[UIView alloc] init];
+    view.backgroundColor = [UIColor clearColor];
+    tableView.tableFooterView = view;
+}
+
++(void)establishItem:(UIView *)item withSuperViewContainingConstants:(CGRect)rect {
+    UIView *view = item.superview;
+    item.translatesAutoresizingMaskIntoConstraints = NO;
+    view.translatesAutoresizingMaskIntoConstraints = NO;
+    if(rect.origin.y != CGFLOAT_MAX) {
+        //顶部与父视图顶部对齐
+        NSLayoutConstraint* topConstraint = [NSLayoutConstraint constraintWithItem:item attribute:NSLayoutAttributeTop relatedBy:NSLayoutRelationEqual toItem:view attribute:NSLayoutAttributeTop multiplier:1.0f constant:rect.origin.y];
+        topConstraint.active = YES;
+    }
+    if(rect.origin.x != CGFLOAT_MAX) {
+        //左侧与父视图左侧对齐
+        NSLayoutConstraint* leftConstraint = [NSLayoutConstraint constraintWithItem:item attribute:NSLayoutAttributeLeading relatedBy:NSLayoutRelationEqual toItem:view attribute:NSLayoutAttributeLeading multiplier:1.0f constant:rect.origin.x];
+        leftConstraint.active = YES;
+    }
+    if(rect.size.width >=0&&rect.size.width != CGFLOAT_MAX) {
+        //右侧与父视图右侧对齐
+        NSLayoutConstraint* rightConstraint = [NSLayoutConstraint constraintWithItem:item attribute:NSLayoutAttributeTrailing relatedBy:NSLayoutRelationEqual toItem:view attribute:NSLayoutAttributeTrailing multiplier:1.0f constant:rect.size.width];
+        rightConstraint.active = YES;
+    } else if(rect.size.width != CGFLOAT_MAX){
+        //宽度
+        NSLayoutConstraint* widthConstraint = [NSLayoutConstraint constraintWithItem:item  attribute:NSLayoutAttributeWidth relatedBy:NSLayoutRelationEqual toItem:nil attribute:NSLayoutAttributeNotAnAttribute multiplier:1.0f constant:-rect.size.width];
+        widthConstraint.active = YES;
+    }
+    if(rect.size.height >=0&&rect.size.height != CGFLOAT_MAX) {
+        //顶部与父视图顶部对齐
+        NSLayoutConstraint* bottomConstraint = [NSLayoutConstraint constraintWithItem:item attribute:NSLayoutAttributeBottom relatedBy:NSLayoutRelationEqual toItem:view attribute:NSLayoutAttributeBottom multiplier:1.0f constant:rect.size.height];
+        bottomConstraint.active = YES;
+    } else if(rect.size.height != CGFLOAT_MAX){
+        //高度
+        NSLayoutConstraint* heightConstraint = [NSLayoutConstraint constraintWithItem:item  attribute:NSLayoutAttributeHeight relatedBy:NSLayoutRelationEqual toItem:nil attribute:NSLayoutAttributeNotAnAttribute multiplier:1.0f constant:-rect.size.height];
+        heightConstraint.active = YES;
+    }
+    
+}
+
++(NSString *)getErrorLocalizedDescription:(NSError *)error{
+    NSString *errorDescription = [error.userInfo objectForKey:@"NSLocalizedDescription"];
+    return errorDescription;
+}
+
++(void)addSubView:(UIView *)subView withRelativeRect:(CGRect)rect inView:(UIView *)view withRealView:(UIView *)realView{
+    //找到真正的rect
+    CGFloat realY = rect.origin.y;
+    CGFloat realX = rect.origin.x;
+    UIView *tempView = view;
+    realX += tempView.frame.origin.x;
+    realY += tempView.frame.origin.y;
+    while(true) {
+        if(tempView.superview == realView) {
+            break;
+        }
+        realY+=tempView.superview.frame.origin.y;
+        realX+=tempView.superview.frame.origin.x;
+    }
+    //重设frame
+    subView.frame = CGRectMake(realX, realY, rect.size.width, rect.size.height);
+    //添加到realView中
+    [realView addSubview:subView];
+}
+
++(CGRect)getAbsolutelyRectInRealView:(UIView *)realView withRelativeRect:(CGRect)rect inView:(UIView *)view{
+    //找到真正的rect
+    CGFloat realY = rect.origin.y;
+    CGFloat realX = rect.origin.x;
+    UIView *tempView = view;
+    realX += tempView.frame.origin.x;
+    realY += tempView.frame.origin.y;
+    while(true) {
+        if(tempView.superview == realView) {
+            break;
+        }
+        realY+=tempView.superview.frame.origin.y;
+        realX+=tempView.superview.frame.origin.x;
+    }
+    //重设frame
+    return CGRectMake(realX, realY, rect.size.width, rect.size.height);
+}
+
++ (void)setOrResetTrangleWithColor:(UIColor *)color andSize:(CGSize)size inView:(UIView *)view reset:(BOOL)isReset withLayer:(CALayer *)trangleLayer{
+    CGPoint bgLayerPoint = CGPointMake(view.frame.size.width-size.width-2, view.frame.size.height/2);//在view右边居中位置+左偏移2放下三角
+    if(!isReset) {
+        CALayer *bgLayer = [self createBgLayerWithColor:[UIColor clearColor] andPosition:bgLayerPoint andSize:size inView:view];
+        CGPoint indicatorPoint = CGPointMake(size.width+2, view.frame.size.height/2);
+        CAShapeLayer *indicator = [self createIndicatorWithColor:color andPosition:indicatorPoint andSize:size];
+        [bgLayer addSublayer:indicator];
+        [view.layer addSublayer:bgLayer];
+    } else {
+        //重设三角位置、颜色
+        CAShapeLayer *dateLabelBgLayer = [self createIndicatorWithColor:color andPosition:bgLayerPoint andSize:size];
+        [view.layer replaceSublayer:trangleLayer with:dateLabelBgLayer];
+    }
+}
+
++ (CALayer *)createBgLayerWithColor:(UIColor *)color andPosition:(CGPoint)position andSize:(CGSize)size inView:(UIView *)view{
+    CALayer *layer = [CALayer layer];
+    layer.position = position;
+    layer.bounds = CGRectMake(0, 0, size.width*2+4, view.frame.size.height);
+    layer.backgroundColor = color.CGColor;
+    layer. anchorPoint = CGPointMake(0.5, 0.5);
+    return layer;
+}
+
++ (CAShapeLayer *)createIndicatorWithColor:(UIColor *)fillColor andPosition:(CGPoint)point andSize:(CGSize)size{
+    CAShapeLayer *layer = [CAShapeLayer new];
+    UIBezierPath *path = [UIBezierPath new];
+    //画线
+    [path moveToPoint:CGPointMake(0, 0)];
+    [path addLineToPoint:CGPointMake(size.width, 0)];
+    [path addLineToPoint:CGPointMake(size.width/2, size.height)];
+    [path closePath];
+    //赋给layer,设置宽度和填充色
+    layer.path = path.CGPath;
+    layer.lineWidth = 0.8;
+    layer.fillColor = fillColor.CGColor;
+    //重绘path,设置宽度、线帽的样式：kCGLineCapButt表示不绘制端点，kCGLineCapRound：该属性值指定绘制圆形端点...、衔接方式：kCGLineJoinMiter表示斜面衔接、斜面的长度上限-miterLimit这个属性表示斜面长度和线条长度的比值，默认是 10，意味着一个斜面的长度不应该超过线条宽度的10倍
+    CGPathRef bound = CGPathCreateCopyByStrokingPath(layer.path, nil, layer.lineWidth, kCGLineCapButt, kCGLineJoinMiter, layer.miterLimit);
+    layer.bounds = CGPathGetBoundingBox(bound);
+    CGPathRelease(bound);//释放不再需要的CGPathRef类型的bound
+    layer.position = point;
+    //描点-默认（0.5，0.5），表示令图像（宽度*0.5，高度*0.5）的点向（0，0）移动
+    layer. anchorPoint = CGPointMake(0.5, 0.5);
+    return layer;
+}
+
++(NSString *)notRounding:(float)floatValue afterPoint:(int)position{
+    NSDecimalNumberHandler* roundingBehavior = [NSDecimalNumberHandler decimalNumberHandlerWithRoundingMode:NSRoundDown scale:position raiseOnExactness:NO raiseOnOverflow:NO raiseOnUnderflow:NO raiseOnDivideByZero:NO];
+    NSDecimalNumber *ouncesDecimal;
+    NSDecimalNumber *roundedOunces;
+    
+    ouncesDecimal = [[NSDecimalNumber alloc] initWithFloat:floatValue];
+    roundedOunces = [ouncesDecimal decimalNumberByRoundingAccordingToBehavior:roundingBehavior];
+    return [NSString stringWithFormat:@"%@",roundedOunces];
+}
+
+//生成使WebView放大缩小功能的js
++(void)enhanceZoomAbilibyInWebView:(UIWebView *)webView {
+    NSString *jsCode = @"function increaseMaxZoomFactor() {\n\
+    var element = document.createElement('meta');\n\
+    element.name = 'viewport';\n\
+    element.content = 'user-scalable=yes,width=device-width,initial-scale=1,maximum-scale=10,minimun-scale=1.0';\n\
+    var head = document.getElementsByTagName('head')[0];\n\
+    head.appendChild(element);\n\
+    }";
+    [webView stringByEvaluatingJavaScriptFromString:jsCode];
+    [webView stringByEvaluatingJavaScriptFromString:@"increaseMaxZoomFactor()"];
+}
+
++(NSString *)getCodeFromResourceName:(NSString *)name andType:(NSString *)type {
+    NSString *path = [[NSBundle mainBundle]pathForResource:name ofType:type];
+    NSString *jsCode = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
+    return jsCode;
+}
+
++ (NSString *)riseRateWithCurrentCount:(NSInteger)currentCount andLastCount:(NSInteger)lastCount {
+    NSString *sameRate = currentCount==0?@"0.00%":(lastCount==0?@"100.00%":[NSString stringWithFormat:@"%.2f",(currentCount-lastCount)*100.0/lastCount]);
+    return sameRate;
+}
+
+//取得字母数据顺序表
++ (NSDictionary<NSString*,NSMutableArray<NSMutableArray<NSString*>*>*>*)getIndexTableOfAlphabetWithSearchText:(NSString *)searchText andAlphabetStringArray:(NSMutableArray *)alphabetStringArray {
+    //用indexAndAlphabet记录alphabetStringArray中原始下标和对应的字母字符串
+    NSMutableArray<NSMutableArray<NSString*>*> *indexAndAlphabet = [[NSMutableArray alloc]init];
+    int i = 0;
+    for(NSString *s in alphabetStringArray) {
+        NSMutableArray<NSString*>* temp = [[NSMutableArray alloc]init];
+        [temp addObject:[NSString stringWithFormat:@"%d",i]];
+        [temp addObject:s];
+        [indexAndAlphabet addObject:temp];
+        i++;
+    }
+    //重排字母字符串--通过比较得到的列表安拼音排列,通过sortedArray[0]可以查到原来的位置
+    NSArray *sortedArray = [indexAndAlphabet sortedArrayUsingComparator:^NSComparisonResult(id obj1, id obj2){
+        return [obj1[1] compare:obj2[1] options:NSNumericSearch];
+    }];
+    NSMutableArray *mutableSortedArray = [[NSMutableArray alloc]initWithArray:sortedArray];
+    if(![searchText isEqualToString:@""]) {
+        NSString *upperSearchText = [[self transform:searchText] uppercaseString];
+        for(NSMutableArray *array in sortedArray) {
+            NSString *upperAlphabet = [array[1] uppercaseString];
+            if(![upperAlphabet containsString:upperSearchText]) {//包含式查找-暂时用这个，不行了就用正则
+                [mutableSortedArray removeObject:array];
+            }
+        }
+    }
+    //过滤字母表和每个字母关联的数据列表位置
+    NSMutableDictionary<NSString*,NSMutableArray<NSMutableArray<NSString*>*>*> *indexTable = [[NSMutableDictionary alloc]init];//目录表
+    NSMutableArray<NSMutableArray<NSString*>*> *alphabetTable = [[NSMutableArray alloc]init];
+    NSMutableArray<NSMutableArray<NSString*>*> *dateArrayTable = [[NSMutableArray alloc]init];
+    for(int i = 0;i<mutableSortedArray.count;) {
+        NSString *alphabet = mutableSortedArray[i][1];
+        NSMutableArray<NSString*> *headAlphabet = [[NSMutableArray alloc] init];
+        headAlphabet[0] = [alphabet substringToIndex:1];
+        if(![alphabetTable containsObject:headAlphabet]) {//这里面把所有相同头字母的都取到
+            [alphabetTable addObject:headAlphabet];
+            NSMutableArray<NSString*> *dateIndexs = [[NSMutableArray alloc]init];
+            int j=i;
+            for(;j<mutableSortedArray.count;j++) {
+                [dateIndexs addObject:mutableSortedArray[j][0]];
+                //检测下一个首字母是否和当前一致，不一致则回到外层循环
+                if(j+1<mutableSortedArray.count) {
+                    NSString *alphabet1 = mutableSortedArray[j+1][1];
+                    NSMutableArray<NSString*> *headAlphabet1 = [[NSMutableArray alloc] init];
+                    headAlphabet1[0] = [alphabet1 substringToIndex:1];
+                    if(![alphabetTable containsObject:headAlphabet1]) {
+                        j++;
+                        break;
+                    }
+                }
+            }
+            [dateArrayTable addObject:dateIndexs];
+            i=j;
+        }
+    }
+    [indexTable setValue:alphabetTable forKey:@"alphabetTable"];
+    [indexTable setValue:dateArrayTable forKey:@"dateArrayTable"];
+    return indexTable;
+    
+}
+
+//汉字转字母
++ (NSString *)transform:(NSString *)chinese {
+    NSMutableString *pinyin = [chinese mutableCopy];
+    CFStringTransform((__bridge CFMutableStringRef)pinyin, NULL, kCFStringTransformMandarinLatin, NO);
+    CFStringTransform((__bridge CFMutableStringRef)pinyin, NULL, kCFStringTransformStripCombiningMarks, NO);
+    return pinyin;
+}
+
+//+ (NSFetchRequest *)getRequestForProperties:(NSArray *)properties withPredict:(NSPredicate *)predicate {
+//    /*查询条件*/
+////    NSPredicate *matchPeopleFilter = [NSPredicate predicateWithFormat:@"id in %@", playersSelected];
+//    NSFetchRequest *request = [Player MR_requestAllWithPredicate:predicate];
+//    [matchPeopleRequest setReturnsDistinctResults:YES];
+//    [matchPeopleRequest setResultType:NSDictionaryResultType];
+//    matchPeopleRequest.propertiesToFetch = @[@"id"];
+//    return matchPeopleRequest;
+//}
+
++ (NSArray *)getArrowAreaWithArray:(NSArray *)array andCenter:(CGPoint)center {
+
+    CGPoint Xmax = CGPointMake(0, 0);
+    CGPoint Ymax = CGPointMake(0, 0);
+    CGPoint Xmin = CGPointMake([UIScreen mainScreen].bounds.size.width, 0);
+    CGPoint Ymin = CGPointMake(0, SCREENHEIGHT);
+    CGPoint tempPoint; //圆心
+    double tempFlaot = 0; //圆的半径
+    double leftUp = 0;
+    double leftDown = 0;
+    double rightUp = 0;
+    double rightDown = 0;
+    
+    for (NSValue *temp in array) {
+        CGPoint point = [temp CGPointValue];
+        if (point.x > Xmax.x) {
+            Xmax = point;
+        }
+        if (point.x < Xmin.x) {
+            Xmin = point;
+        }
+        if (point.y > Ymax.y) {
+            Ymax = point;
+        }
+        if (point.y < Ymin.y) {
+            Ymin = point;
+        }
+        
+        if (point.x <= center.x && point.y > center.y) {
+            leftUp ++;
+        } else if (point.x > center.x && point.y >= center.y) {
+            rightUp ++;
+        } else if (point.x >= center.x && point.y < center.y) {
+            rightDown ++;
+        } else if (point.x < center.x && point.y <= center.y) {
+            leftDown ++;
+        }
+        
+    }
+    
+    float x = hypot(fabs(Xmax.x - Xmin.x),fabs(Xmax.y - Xmin.y));
+    float y = hypot(fabs(Ymax.x - Ymin.x),fabs(Ymax.y - Ymin.y));
+    
+    if (x > y) {
+        tempPoint = CGPointMake((Xmax.x + Xmin.x)/2.0, (Xmax.y + Xmin.y) / 2.0);
+        float z = hypot(fabs(tempPoint.x - Ymin.x),fabs(tempPoint.y - Ymin.y));
+        float l = hypot(fabs(tempPoint.x - Ymax.x),fabs(tempPoint.y - Ymax.y));
+        tempFlaot = z>l?z:l;
+        tempFlaot = tempFlaot > x/2?tempFlaot:x/2;
+    } else {
+        tempPoint = CGPointMake((Ymax.x + Ymin.x)/2.0, (Ymax.y + Ymin.y) / 2.0);
+        float z = hypot(fabs(tempPoint.x - Xmin.x),fabs(tempPoint.y - Xmin.y));
+        float l = hypot(fabs(tempPoint.x - Xmax.x),fabs(tempPoint.y - Xmax.y));
+        tempFlaot = z>l?z:l;
+        tempFlaot = tempFlaot > y/2?tempFlaot:y/2;
+    }
+    
+    return @[[NSNumber numberWithDouble:M_PI*tempFlaot*tempFlaot/28/28], [NSNumber numberWithDouble:leftUp/array.count], [NSNumber numberWithDouble:rightUp/array.count], [NSNumber numberWithDouble:rightDown/array.count], [NSNumber numberWithDouble:leftDown/array.count]];
+    
+}
+
+
++ (NSNumber *)getLocationWithPoint:(CGPoint)point andCenter:(CGPoint)center {
+    
+    if (point.x <= center.x && point.y > center.y) {
+        return @1;
+    } else if (point.x > center.x && point.y >= center.y) {
+        return @2;
+    } else if (point.x >= center.x && point.y < center.y) {
+        return @3;
+    } else if (point.x < center.x && point.y <= center.y) {
+        return @4;
+    }
+    return 0;
+}
+
++ (NSNumber *)getDistanceWithPoint:(CGPoint)point andCenter:(CGPoint)center {
+    return [NSNumber numberWithDouble:sqrt((point.x - center.x)*(point.x - center.x) + (point.y - center.y)*(point.y - center.y))] ;
+}
+
++(int)compareDate:(NSString*)date01 withDate:(NSString*)date02 withDateFormatter:(NSString*)dateFormatter{
+    int ci;
+    NSDateFormatter *df = [[NSDateFormatter alloc] init];
+    [df setDateFormat:dateFormatter];
+    NSDate *dt1 = [[NSDate alloc] init];
+    NSDate *dt2 = [[NSDate alloc] init];
+    dt1 = [df dateFromString:date01];
+    dt2 = [df dateFromString:date02];
+    NSComparisonResult result = [dt1 compare:dt2];
+    switch (result)
+    {
+            //date02比date01大
+        case NSOrderedAscending: ci=-1; break;
+            //date02比date01小
+        case NSOrderedDescending: ci=1; break;
+            //date02=date01
+        case NSOrderedSame: ci=0; break;
+        default: NSLog(@"erorr dates %@, %@", dt2, dt1); break;
+    }
+    return ci;
+}
+
++(BOOL)isPhoneNumber:(NSString*)phone {
+    BOOL isPhone = NO;
+    NSString *regex = @"^1\\d{10}$";
+    isPhone = [self checkText:phone WithRegString:regex];
+    return isPhone;
+}
+
++(BOOL)checkText:(NSString*)text WithRegString:(NSString*)RegString{
+    NSPredicate *passwordCheck = [NSPredicate predicateWithFormat:@"SELF MATCHES %@",RegString];
+    BOOL isValid = [passwordCheck evaluateWithObject:text];
+    return isValid;
+}
+
++ (UIColor *)colorWithHexString:(NSString *)color alpha:(CGFloat)alpha {
+    //删除字符串中的空格
+    NSString *cString = [[color stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] uppercaseString];
+    // String should be 6 or 8 characters
+    if ([cString length] < 6)
+    {
+        return [UIColor clearColor];
+    }
+    // strip 0X if it appears
+    //如果是0x开头的，那么截取字符串，字符串从索引为2的位置开始，一直到末尾
+    if ([cString hasPrefix:@"0X"])
+    {
+        cString = [cString substringFromIndex:2];
+    }
+    //如果是#开头的，那么截取字符串，字符串从索引为1的位置开始，一直到末尾
+    if ([cString hasPrefix:@"#"])
+    {
+        cString = [cString substringFromIndex:1];
+    }
+    if ([cString length] != 6)
+    {
+        return [UIColor clearColor];
+    }
+    
+    // Separate into r, g, b substrings
+    NSRange range;
+    range.location = 0;
+    range.length = 2;
+    //r
+    NSString *rString = [cString substringWithRange:range];
+    //g
+    range.location = 2;
+    NSString *gString = [cString substringWithRange:range];
+    //b
+    range.location = 4;
+    NSString *bString = [cString substringWithRange:range];
+    
+    // Scan values
+    unsigned int r, g, b;
+    [[NSScanner scannerWithString:rString] scanHexInt:&r];
+    [[NSScanner scannerWithString:gString] scanHexInt:&g];
+    [[NSScanner scannerWithString:bString] scanHexInt:&b];
+    return [UIColor colorWithRed:((float)r / 255.0f) green:((float)g / 255.0f) blue:((float)b / 255.0f) alpha:alpha];
+}
+
+//默认alpha值为1
++ (UIColor *)colorWithHexString:(NSString *)color {
+    return [self colorWithHexString:color alpha:1.0f];
+}
+
++ (NSDate *)getLastMonthDate {
+    
+    NSDate *currentDate = [NSDate new];
+    NSCalendar *cal = [NSCalendar currentCalendar];
+    NSDateComponents *components = [[NSDateComponents alloc]init];
+    [components setYear:0];
+    [components setDay:0];
+    [components setMonth:-1];
+    NSDate *lastMonth = [cal dateByAddingComponents:components toDate: currentDate options:0];
+    return lastMonth;
+}
+
 @end
