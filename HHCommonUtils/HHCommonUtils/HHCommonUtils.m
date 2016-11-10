@@ -594,11 +594,6 @@
     
 }
 
-+(NSString *)getErrorLocalizedDescription:(NSError *)error{
-    NSString *errorDescription = [error.userInfo objectForKey:@"NSLocalizedDescription"];
-    return errorDescription;
-}
-
 +(void)addSubView:(UIView *)subView withRelativeRect:(CGRect)rect inView:(UIView *)view withRealView:(UIView *)realView{
     //找到真正的rect
     CGFloat realY = rect.origin.y;
@@ -717,199 +712,6 @@
     return sameRate;
 }
 
-//取得字母数据顺序表
-+ (NSDictionary<NSString*,NSMutableArray<NSMutableArray<NSString*>*>*>*)getIndexTableOfAlphabetWithSearchText:(NSString *)searchText andAlphabetStringArray:(NSMutableArray *)alphabetStringArray {
-    //用indexAndAlphabet记录alphabetStringArray中原始下标和对应的字母字符串
-    NSMutableArray<NSMutableArray<NSString*>*> *indexAndAlphabet = [[NSMutableArray alloc]init];
-    int i = 0;
-    for(NSString *s in alphabetStringArray) {
-        NSMutableArray<NSString*>* temp = [[NSMutableArray alloc]init];
-        [temp addObject:[NSString stringWithFormat:@"%d",i]];
-        [temp addObject:s];
-        [indexAndAlphabet addObject:temp];
-        i++;
-    }
-    //重排字母字符串--通过比较得到的列表安拼音排列,通过sortedArray[0]可以查到原来的位置
-    NSArray *sortedArray = [indexAndAlphabet sortedArrayUsingComparator:^NSComparisonResult(id obj1, id obj2){
-        return [obj1[1] compare:obj2[1] options:NSNumericSearch];
-    }];
-    NSMutableArray *mutableSortedArray = [[NSMutableArray alloc]initWithArray:sortedArray];
-    if(![searchText isEqualToString:@""]) {
-        NSString *upperSearchText = [[self transform:searchText] uppercaseString];
-        for(NSMutableArray *array in sortedArray) {
-            NSString *upperAlphabet = [array[1] uppercaseString];
-            if(![upperAlphabet containsString:upperSearchText]) {//包含式查找-暂时用这个，不行了就用正则
-                [mutableSortedArray removeObject:array];
-            }
-        }
-    }
-    //过滤字母表和每个字母关联的数据列表位置
-    NSMutableDictionary<NSString*,NSMutableArray<NSMutableArray<NSString*>*>*> *indexTable = [[NSMutableDictionary alloc]init];//目录表
-    NSMutableArray<NSMutableArray<NSString*>*> *alphabetTable = [[NSMutableArray alloc]init];
-    NSMutableArray<NSMutableArray<NSString*>*> *dateArrayTable = [[NSMutableArray alloc]init];
-    for(int i = 0;i<mutableSortedArray.count;) {
-        NSString *alphabet = mutableSortedArray[i][1];
-        NSMutableArray<NSString*> *headAlphabet = [[NSMutableArray alloc] init];
-        headAlphabet[0] = [alphabet substringToIndex:1];
-        if(![alphabetTable containsObject:headAlphabet]) {//这里面把所有相同头字母的都取到
-            [alphabetTable addObject:headAlphabet];
-            NSMutableArray<NSString*> *dateIndexs = [[NSMutableArray alloc]init];
-            int j=i;
-            for(;j<mutableSortedArray.count;j++) {
-                [dateIndexs addObject:mutableSortedArray[j][0]];
-                //检测下一个首字母是否和当前一致，不一致则回到外层循环
-                if(j+1<mutableSortedArray.count) {
-                    NSString *alphabet1 = mutableSortedArray[j+1][1];
-                    NSMutableArray<NSString*> *headAlphabet1 = [[NSMutableArray alloc] init];
-                    headAlphabet1[0] = [alphabet1 substringToIndex:1];
-                    if(![alphabetTable containsObject:headAlphabet1]) {
-                        j++;
-                        break;
-                    }
-                }
-            }
-            [dateArrayTable addObject:dateIndexs];
-            i=j;
-        }
-    }
-    [indexTable setValue:alphabetTable forKey:@"alphabetTable"];
-    [indexTable setValue:dateArrayTable forKey:@"dateArrayTable"];
-    return indexTable;
-    
-}
-
-//汉字转字母
-+ (NSString *)transform:(NSString *)chinese {
-    NSMutableString *pinyin = [chinese mutableCopy];
-    CFStringTransform((__bridge CFMutableStringRef)pinyin, NULL, kCFStringTransformMandarinLatin, NO);
-    CFStringTransform((__bridge CFMutableStringRef)pinyin, NULL, kCFStringTransformStripCombiningMarks, NO);
-    return pinyin;
-}
-
-//+ (NSFetchRequest *)getRequestForProperties:(NSArray *)properties withPredict:(NSPredicate *)predicate {
-//    /*查询条件*/
-////    NSPredicate *matchPeopleFilter = [NSPredicate predicateWithFormat:@"id in %@", playersSelected];
-//    NSFetchRequest *request = [Player MR_requestAllWithPredicate:predicate];
-//    [matchPeopleRequest setReturnsDistinctResults:YES];
-//    [matchPeopleRequest setResultType:NSDictionaryResultType];
-//    matchPeopleRequest.propertiesToFetch = @[@"id"];
-//    return matchPeopleRequest;
-//}
-
-+ (NSArray *)getArrowAreaWithArray:(NSArray *)array andCenter:(CGPoint)center {
-
-    CGPoint Xmax = CGPointMake(0, 0);
-    CGPoint Ymax = CGPointMake(0, 0);
-    CGPoint Xmin = CGPointMake([UIScreen mainScreen].bounds.size.width, 0);
-    CGPoint Ymin = CGPointMake(0, SCREENHEIGHT);
-    CGPoint tempPoint; //圆心
-    double tempFlaot = 0; //圆的半径
-    double leftUp = 0;
-    double leftDown = 0;
-    double rightUp = 0;
-    double rightDown = 0;
-    
-    for (NSValue *temp in array) {
-        CGPoint point = [temp CGPointValue];
-        if (point.x > Xmax.x) {
-            Xmax = point;
-        }
-        if (point.x < Xmin.x) {
-            Xmin = point;
-        }
-        if (point.y > Ymax.y) {
-            Ymax = point;
-        }
-        if (point.y < Ymin.y) {
-            Ymin = point;
-        }
-        
-        if (point.x <= center.x && point.y > center.y) {
-            leftUp ++;
-        } else if (point.x > center.x && point.y >= center.y) {
-            rightUp ++;
-        } else if (point.x >= center.x && point.y < center.y) {
-            rightDown ++;
-        } else if (point.x < center.x && point.y <= center.y) {
-            leftDown ++;
-        }
-        
-    }
-    
-    float x = hypot(fabs(Xmax.x - Xmin.x),fabs(Xmax.y - Xmin.y));
-    float y = hypot(fabs(Ymax.x - Ymin.x),fabs(Ymax.y - Ymin.y));
-    
-    if (x > y) {
-        tempPoint = CGPointMake((Xmax.x + Xmin.x)/2.0, (Xmax.y + Xmin.y) / 2.0);
-        float z = hypot(fabs(tempPoint.x - Ymin.x),fabs(tempPoint.y - Ymin.y));
-        float l = hypot(fabs(tempPoint.x - Ymax.x),fabs(tempPoint.y - Ymax.y));
-        tempFlaot = z>l?z:l;
-        tempFlaot = tempFlaot > x/2?tempFlaot:x/2;
-    } else {
-        tempPoint = CGPointMake((Ymax.x + Ymin.x)/2.0, (Ymax.y + Ymin.y) / 2.0);
-        float z = hypot(fabs(tempPoint.x - Xmin.x),fabs(tempPoint.y - Xmin.y));
-        float l = hypot(fabs(tempPoint.x - Xmax.x),fabs(tempPoint.y - Xmax.y));
-        tempFlaot = z>l?z:l;
-        tempFlaot = tempFlaot > y/2?tempFlaot:y/2;
-    }
-    
-    return @[[NSNumber numberWithDouble:M_PI*tempFlaot*tempFlaot/28/28], [NSNumber numberWithDouble:leftUp/array.count], [NSNumber numberWithDouble:rightUp/array.count], [NSNumber numberWithDouble:rightDown/array.count], [NSNumber numberWithDouble:leftDown/array.count]];
-    
-}
-
-
-+ (NSNumber *)getLocationWithPoint:(CGPoint)point andCenter:(CGPoint)center {
-    
-    if (point.x <= center.x && point.y > center.y) {
-        return @1;
-    } else if (point.x > center.x && point.y >= center.y) {
-        return @2;
-    } else if (point.x >= center.x && point.y < center.y) {
-        return @3;
-    } else if (point.x < center.x && point.y <= center.y) {
-        return @4;
-    }
-    return 0;
-}
-
-+ (NSNumber *)getDistanceWithPoint:(CGPoint)point andCenter:(CGPoint)center {
-    return [NSNumber numberWithDouble:sqrt((point.x - center.x)*(point.x - center.x) + (point.y - center.y)*(point.y - center.y))] ;
-}
-
-+(int)compareDate:(NSString*)date01 withDate:(NSString*)date02 withDateFormatter:(NSString*)dateFormatter{
-    int ci;
-    NSDateFormatter *df = [[NSDateFormatter alloc] init];
-    [df setDateFormat:dateFormatter];
-    NSDate *dt1 = [[NSDate alloc] init];
-    NSDate *dt2 = [[NSDate alloc] init];
-    dt1 = [df dateFromString:date01];
-    dt2 = [df dateFromString:date02];
-    NSComparisonResult result = [dt1 compare:dt2];
-    switch (result)
-    {
-            //date02比date01大
-        case NSOrderedAscending: ci=-1; break;
-            //date02比date01小
-        case NSOrderedDescending: ci=1; break;
-            //date02=date01
-        case NSOrderedSame: ci=0; break;
-        default: NSLog(@"erorr dates %@, %@", dt2, dt1); break;
-    }
-    return ci;
-}
-
-+(BOOL)isPhoneNumber:(NSString*)phone {
-    BOOL isPhone = NO;
-    NSString *regex = @"^1\\d{10}$";
-    isPhone = [self checkText:phone WithRegString:regex];
-    return isPhone;
-}
-
-+(BOOL)checkText:(NSString*)text WithRegString:(NSString*)RegString{
-    NSPredicate *passwordCheck = [NSPredicate predicateWithFormat:@"SELF MATCHES %@",RegString];
-    BOOL isValid = [passwordCheck evaluateWithObject:text];
-    return isValid;
-}
 
 + (UIColor *)colorWithHexString:(NSString *)color alpha:(CGFloat)alpha {
     //删除字符串中的空格
@@ -973,4 +775,102 @@
     return lastMonth;
 }
 
++ (NSDate *)getLastNMonthDate:(NSInteger)n {
+    
+    NSDate *currentDate = [NSDate new];
+    NSCalendar *cal = [NSCalendar currentCalendar];
+    NSDateComponents *components = [[NSDateComponents alloc]init];
+    [components setYear:0];
+    [components setDay:0];
+    [components setMonth:-n];
+    NSDate *lastMonth = [cal dateByAddingComponents:components toDate: currentDate options:0];
+    return lastMonth;
+}
+
+
++ (NSString *)stringValue:(NSString*)arg fromDictionary:(NSDictionary*)dictionary {
+    NSString *standardStringValue = [NSString stringWithFormat:@"%@",[dictionary valueForKey:arg]];//过滤[NSNull null]
+    standardStringValue = [self turnStringValue:standardStringValue fromArray:@[@"<null>"] toValue:@""];//过滤[NSNull null]转化的"<null>"
+    return standardStringValue;
+}
+
++ (NSString *)floatString:(NSString*)arg fromDictionary:(NSDictionary*)dictionary tailLength:(NSUInteger)tailLength{
+    NSString *standardStringValue = [self stringValue:arg fromDictionary:dictionary];
+    NSString *headString = @"%";
+    NSString *willAppendString = [NSString stringWithFormat:@".%luf",tailLength];
+    NSString *formatString = [headString stringByAppendingString:willAppendString];
+    NSScanner* scan = [NSScanner scannerWithString:standardStringValue];
+    float val;
+    if( [scan scanFloat:&val] && [scan isAtEnd])
+    {
+        NSLog(@"this is a float");
+        standardStringValue = [NSString stringWithFormat:formatString,[standardStringValue floatValue]];
+    }
+    return standardStringValue;
+}
+
++(NSString*)turnStringValue:(NSString*)stringValue fromArray:(NSArray*)array toValue:(NSString*)value {
+    for(NSString *tempString in array) {
+        if([stringValue isEqualToString:tempString]) {
+            return @"";
+        }
+    }
+    return stringValue;
+}
+
++ (BOOL)isEmptyString:(NSString*)string {
+    if([string isEqual:[NSNull null]]) {
+        return YES;
+    }
+    if([self isString:string existInArray:@[@""]]) {
+        return YES;
+    } else {
+        return NO;
+    }
+}
+
++(BOOL)isString:(NSString*)string existInArray:(NSArray*)array {
+    if([array containsObject:string]) {
+        return YES;
+    } else {
+        return NO;
+    }
+}
+
++(NSDictionary*)getKeyValuesByKeyArray:(NSArray*)keyArray andValueArray:(NSArray*)valueArray {
+    NSMutableDictionary *dic = [[NSMutableDictionary alloc]init];
+    int i = 0;
+    for(NSString *key in keyArray) {
+        [dic setValue:valueArray[i] forKey:key];
+        i++;
+    }
+    NSDictionary *targetDic = [[NSDictionary alloc]initWithDictionary:dic];
+    return targetDic;
+}
+
++ (AntiqueResultDealState)loadData:(NSArray *)result withWillLoadPageNum:(NSUInteger*)willLoadPageNum andDataArray:(NSMutableArray *)dataArray withFirstPage:(NSUInteger)first_page{
+    if(first_page != NSUIntegerMax) {//使用分页
+        if(result.count == 0) {//未取到数据
+            if(*willLoadPageNum == first_page) {//数据为空
+                [dataArray removeAllObjects];
+                return AntiqueResultDealStateEmpty;
+            } else {//数据已加载完
+                return AntiqueResultDealStateEnd;
+            }
+        } else {
+            [dataArray addObjectsFromArray:result];
+            *willLoadPageNum = *willLoadPageNum+1;
+            return AntiqueResultDealStateDefault;
+        }
+    } else {//不使用分页
+        if(result.count == 0) {
+            [dataArray removeAllObjects];
+            return AntiqueResultDealStateEmpty;
+        } else {
+            [dataArray removeAllObjects];
+            [dataArray addObjectsFromArray:result];
+            return AntiqueResultDealStateDefault;
+        }
+    }
+}
 @end

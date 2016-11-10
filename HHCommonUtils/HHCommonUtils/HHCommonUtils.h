@@ -10,8 +10,6 @@
 #import <UIKit/UIKit.h>
 
 @interface HHCommonUtils : NSObject<UITextFieldDelegate>
-//
-//@property (nonatomic,strong) NSMutableDictionary *argsDic;//参数字典
 
 @property (nonatomic,strong) UIViewController *currentViewController;
 
@@ -103,14 +101,6 @@
  */
 +(void)establishItem:(UIView *)item withSuperViewContainingConstants:(CGRect)rect;
 
-//+(NSString *)dealWithErrorInfo:(NSError *)error withErrorCode:(NSString *)errorCode andDealType:(NSString*)dealType;
-/* @brief  取得错误本地化信息
- * @param error:错误实体
- * @return 错误本地化信息
- * @author dongkaiming
- */
-+(NSString *)getErrorLocalizedDescription:(NSError *)error;
-
 /* @brief  把一个视图subview放入相对viewrect的位置,但实际view为realView
  * @param subview要放入的视图;rect:相对view的位置;view:看似放入的view;realView:实际放入的view
  * @return
@@ -139,13 +129,6 @@
  */
 +(NSString *)notRounding:(float)floatValue afterPoint:(int)position;
 
-///* @brief 取出HHCommonUtils中的参数字典
-// * @param
-// * @return 参数字典
-// * @author dongkaiming
-// */
-//+(NSMutableDictionary *) getArgsDic;
-
 /* @brief 生成使WebView放大缩小功能的js,并放到webView中
  * @param webView 要调用功能的webView
  * @return
@@ -166,56 +149,6 @@
  * @from 董凯明
  */
 + (NSString *)riseRateWithCurrentCount:(NSInteger)currentCount andLastCount:(NSInteger)lastCount;
-
-/* @brief 取得字母&数组顺序表
- * @param searchText:查询关键字 alphabetStringArray:当前数据的字母字符串列表
- * @return 字母&数组顺序表
- * @from 董凯明
- */
-+ (NSDictionary<NSString*,NSMutableArray<NSMutableArray<NSString*>*>*>*)getIndexTableOfAlphabetWithSearchText:(NSString *)searchText andAlphabetStringArray:(NSMutableArray *)alphabetStringArray;
-
-///* @brief 取得对某些属性组的搜集请求
-// * @param properties:属性组 predicate:断言
-// * @return 搜集请求
-// * @from 董凯明
-// */
-//+ (NSFetchRequest *)getRequestForProperties:(NSArray *)properties withPredict:(NSPredicate *)predicate;
-
-/* @brief 求箭着落点面积以及分布概率
- * @param array:坐标数组 center:靶子的中心点
- * @return 面积以及分布概率数组
- * @from 汤凯
- */
-+ (NSArray *)getArrowAreaWithArray:(NSArray *)array andCenter:(CGPoint)center;
-
-/* @brief 求分布位置，左上，左下，右上，右下 distance
- * @param point:坐标数组 center:靶子的中心点
- * @return 左上:1，左下4，右上2，右下3
- * @from 汤凯
- */
-+ (NSNumber *)getLocationWithPoint:(CGPoint)point andCenter:(CGPoint)center;
-
-/* @brief 求箭位离中心点的距离
- * @param point:坐标数组 center:靶子的中心点
- * @return 箭位离中心点的距离
- * @from 汤凯
- */
-+ (NSNumber *)getDistanceWithPoint:(CGPoint)point andCenter:(CGPoint)center;
-
-
-/* @brief 比较两个字符串代表的日期大小
- * @param date01:日期01 date02:日期02 dateFormatter:日期01和日期02的日期格式--必须一致
- * @return 0:相同 1:日期01比较大 2:日期02比较大
- * @from http://blog.163.com/life_00700@126/blog/static/276466892014101833747923/
- */
-+(int)compareDate:(NSString*)date01 withDate:(NSString*)date02 withDateFormatter:(NSString*)dateFormatter;
-
-/* @brief 是手机号吗
- * @param phone:要检测的手机号
- * @return BOOL yes:格式正确 no:格式不正确
- * @from
- */
-+(BOOL)isPhoneNumber:(NSString*)phone;
 
 /* @brief 通过16进制数取得颜色
  * @param color:16进制颜色
@@ -239,4 +172,49 @@
  */
 + (NSDate *)getLastMonthDate;
 
+/* @brief 取得当前时间的上n月当天
+ * @param 空
+ * @return 上n月当天
+ * @from 汤凯
+ */
++ (NSDate *)getLastNMonthDate:(NSInteger)n;
+
+/* @brief 取得字符串
+ * @param arg:参数名 dictionary:字典
+ * @return 过滤后的字符串
+ * @from 董凯明
+ */
++ (NSString *)stringValue:(NSString*)arg fromDictionary:(NSDictionary*)dictionary;
+
+/* @brief 取得字符串
+ * @param arg:参数名 dictionary:字典 tailLength:小数点后面的位数
+ * @return 过滤后的字符串
+ * @from 董凯明
+ */
++ (NSString *)floatString:(NSString*)arg fromDictionary:(NSDictionary*)dictionary tailLength:(NSUInteger)tailLength;
+/* @brief 取得字符串
+ * @param string:要检查的字符串
+ * @return BOOL
+ * @from 董凯明
+ */
++ (BOOL)isEmptyString:(NSString*)string;
+
+/* @brief 通过键-值数组取得对应字典
+ * @param keyArray:键数组 valueArray:值数组
+ * @return 对应字典
+ * @from 董凯明
+ */
++(NSDictionary*)getKeyValuesByKeyArray:(NSArray*)keyArray andValueArray:(NSArray*)valueArray;
+
+typedef NS_ENUM(NSUInteger, AntiqueResultDealState) {//result处理类型
+    AntiqueResultDealStateDefault = 1,//默认:正常
+    AntiqueResultDealStateEnd = 2,//数据加载完成
+    AntiqueResultDealStateEmpty = 3, //没有数据
+};
+/* @brief 取得数据后在返回当前状态
+ * @param result:取得的数据 willLoadPageNum:将要加载的页码的指针 dataArray:存放数据的数组,该值必须已经初始化
+ * @return 下次加载的页码
+ * @from 董凯明
+ */
++ (AntiqueResultDealState)loadData:(NSArray *)result withWillLoadPageNum:(NSUInteger*)willLoadPageNum andDataArray:(NSMutableArray *)dataArray withFirstPage:(NSUInteger)first_page;
 @end
