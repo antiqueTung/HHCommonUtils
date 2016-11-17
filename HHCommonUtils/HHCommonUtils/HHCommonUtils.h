@@ -191,7 +191,7 @@
  * @return 过滤后的字符串
  * @from 董凯明
  */
-+ (NSString *)floatString:(NSString*)arg fromDictionary:(NSDictionary*)dictionary tailLength:(NSInteger)tailLength;
+//+ (NSString *)floatString:(NSString*)arg fromDictionary:(NSDictionary*)dictionary tailLength:(NSInteger)tailLength;
 
 /* @brief 取得字符串
  * @param string:要检查的字符串

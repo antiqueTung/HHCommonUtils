@@ -794,20 +794,20 @@
     return standardStringValue;
 }
 
-+ (NSString *)floatString:(NSString*)arg fromDictionary:(NSDictionary*)dictionary tailLength:(NSInteger)tailLength{
-    NSString *standardStringValue = [self stringValue:arg fromDictionary:dictionary];
-    NSString *headString = @"%";
-    NSString *willAppendString = [NSString stringWithFormat:@".%ldf",tailLength];
-    NSString *formatString = [headString stringByAppendingString:willAppendString];
-    NSScanner* scan = [NSScanner scannerWithString:standardStringValue];
-    float val;
-    if( [scan scanFloat:&val] && [scan isAtEnd])
-    {
-        NSLog(@"this is a float");
-        standardStringValue = [NSString stringWithFormat:formatString,[standardStringValue floatValue]];
-    }
-    return standardStringValue;
-}
+//+ (NSString *)floatString:(NSString*)arg fromDictionary:(NSDictionary*)dictionary tailLength:(NSInteger)tailLength{
+//    NSString *standardStringValue = [self stringValue:arg fromDictionary:dictionary];
+//    NSString *headString = @"%";
+//    NSString *willAppendString = [NSString stringWithFormat:@".%ldf",tailLength];
+//    NSString *formatString = [headString stringByAppendingString:willAppendString];
+//    NSScanner* scan = [NSScanner scannerWithString:standardStringValue];
+//    float val;
+//    if( [scan scanFloat:&val] && [scan isAtEnd])
+//    {
+//        NSLog(@"this is a float");
+//        standardStringValue = [NSString stringWithFormat:formatString,[standardStringValue floatValue]];
+//    }
+//    return standardStringValue;
+//}
 
 +(NSString*)turnStringValue:(NSString*)stringValue fromArray:(NSArray*)array toValue:(NSString*)value {
     for(NSString *tempString in array) {
