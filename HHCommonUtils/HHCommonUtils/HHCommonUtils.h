@@ -192,6 +192,7 @@
  * @from 董凯明
  */
 + (NSString *)floatString:(NSString*)arg fromDictionary:(NSDictionary*)dictionary tailLength:(NSUInteger)tailLength;
+
 /* @brief 取得字符串
  * @param string:要检查的字符串
  * @return BOOL
@@ -217,4 +218,11 @@ typedef NS_ENUM(NSUInteger, AntiqueResultDealState) {//result处理类型
  * @from 董凯明
  */
 + (AntiqueResultDealState)loadData:(NSArray *)result withWillLoadPageNum:(NSUInteger*)willLoadPageNum andDataArray:(NSMutableArray *)dataArray withFirstPage:(NSUInteger)first_page;
+
+/* @brief 比较两个字符串代表的日期大小
+ * @param date01:日期01 date02:日期02 dateFormatter:日期01和日期02的日期格式--必须一致
+ * @return 0:相同 1:日期01比较大 2:日期02比较大
+ * @from http://blog.163.com/life_00700@126/blog/static/276466892014101833747923/
+ */
++(int)compareDate:(NSString*)date01 withDate:(NSString*)date02 withDateFormatter:(NSString*)dateFormatter;
 @end
