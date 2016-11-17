@@ -797,7 +797,7 @@
 + (NSString *)floatString:(NSString*)arg fromDictionary:(NSDictionary*)dictionary tailLength:(NSUInteger)tailLength{
     NSString *standardStringValue = [self stringValue:arg fromDictionary:dictionary];
     NSString *headString = @"%";
-    NSString *willAppendString = [NSString stringWithFormat:@".%luf",(unsigned long)tailLength];
+    NSString *willAppendString = [NSString stringWithFormat:@".%ldf",(long)tailLength];
     NSString *formatString = [headString stringByAppendingString:willAppendString];
     NSScanner* scan = [NSScanner scannerWithString:standardStringValue];
     float val;
